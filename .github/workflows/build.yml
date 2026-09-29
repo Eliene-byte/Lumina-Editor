@@ -37,6 +37,12 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 60
 
+    # Necessario para o passo "Publicar log de falha" gravar o trecho final da
+    # saida no branch ci-diagnostics. Sem isso o log fica preso em area que so
+    # aparece com autenticacao, que e justamente onde nao se consegue chegar.
+    permissions:
+      contents: write
+
     steps:
       - name: Copiar o codigo
         uses: actions/checkout@v4
@@ -196,8 +202,33 @@ jobs:
       # exatamente o que interessa. O step summary de um repositorio publico
       # aparece na pagina do run sem login, entao o erro vai para la. Sem
       # isso, cada falha custa um run inteiro so para descobrir o que era.
+      # O log do Actions so e legivel com autenticacao, e o log e exatamente
+      # onde esta o erro que interessa. Cada falha publica o trecho final da
+      # saida no branch ci-diagnostics, que qualquer um - inclusive uma
+      # maquina sem gh autenticado - le com um git fetch normal.
+      - name: Publicar log de falha
+        if: failure() && steps.compile.outputs.log != ''
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            Accept = "application/vnd.github+json"
+          }
+          $texto = Get-Content 'falha.log' -Raw
+          $payload = @{
+            message    = "log do run $env:GITHUB_RUN_ID ($env:GITHUB_SHA)"
+            content    = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($texto))
+            branch     = 'ci-diagnostics'
+          } | ConvertTo-Json
+          Invoke-RestMethod -Method Put `
+            -Uri "https://api.github.com/repos/$env:GITHUB_REPOSITORY/contents/falha.log" `
+            -Headers $headers -Body $payload | Out-Null
+          Write-Host "log publicado no branch ci-diagnostics"
+
       - name: Configurar
         shell: pwsh
+        id: compile
         run: |
           $ErrorActionPreference = 'Continue'
           $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
@@ -221,15 +252,18 @@ jobs:
 
           $code = $LASTEXITCODE
           if ($code -ne 0) {
-            $erro = Get-Content $log -Tail 60
+            $erro = Get-Content $log -Tail 80
             "### Configurar falhou (codigo $code)`n``````text`n$($erro -join "`n")`n``````" |
               Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-            throw "cmake falhou com codigo $code (saida completa no resumo deste step)"
+            $erro -join "`n" | Out-File -FilePath 'falha.log' -Encoding utf8
+            "log=$log" >> $env:GITHUB_OUTPUT
+            throw "cmake falhou com codigo $code (log no branch ci-diagnostics)"
           }
           "Configurar ok" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - name: Compilar
         shell: pwsh
+        id: build
         run: |
           $ErrorActionPreference = 'Continue'
           $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
@@ -241,10 +275,12 @@ jobs:
           if ($code -ne 0) {
             # O compilador acusa na ordem inversa e a ultima linha raramente e
             # a causa. O que resolve o erro esta no meio, entao vai tudo.
-            $erro = Get-Content $log -Tail 200
+            $erro = Get-Content $log -Tail 250
             "### Compilar falhou (codigo $code)`n``````text`n$($erro -join "`n")`n``````" |
               Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-            throw "compilacao falhou com codigo $code (saida completa no resumo deste step)"
+            $erro -join "`n" | Out-File -FilePath 'falha.log' -Encoding utf8
+            "log=$log" >> $env:GITHUB_OUTPUT
+            throw "compilacao falhou com codigo $code (log no branch ci-diagnostics)"
           }
           "Compilar ok" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
