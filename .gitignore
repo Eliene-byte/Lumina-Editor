@@ -1,0 +1,49 @@
+# Build
+build/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+*.user
+
+# Dependências baixadas
+_deps/
+third_party/
+
+# Artefatos portáteis
+dist/
+*.zip
+*.7z
+
+# Qt
+*.qmlc
+*.jsc
+.qmake.stash
+*_qmlcache.qrc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+*.moc
+
+# Visual Studio / MSVC
+.vs/
+*.aps
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.pdb
+*.ilk
+*.idb
+*.tlog
+*.obj
+
+# Logs e temporários
+*.log
+*.tmp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Cache local
+.cache/
+/tmp/

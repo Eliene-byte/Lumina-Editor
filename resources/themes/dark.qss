@@ -1,0 +1,229 @@
+/* dark.qss - Tema escuro do Lumina.
+ *
+ * Um unico tema, de proposito: menos codigo e menos bytes no executavel
+ * portavel, e o visual escuro e o unico que faz sentido num editor de video
+ * (evita o cansaco de tela clara em sessao longa e deixa o conteudo da imagem
+ * dominar a percepcao).
+ */
+
+QWidget {
+    background-color: #1c1e22;
+    color: #d6d9de;
+    font-family: "Segoe UI", "Inter", system-ui, sans-serif;
+    font-size: 12px;
+}
+
+QMainWindow::separator {
+    background-color: #2b2e35;
+    width: 4px;
+    height: 4px;
+}
+QMainWindow::separator:hover {
+    background-color: #3d6fd4;
+}
+
+/* --- paineis e cartoes --- */
+QFrame#panel {
+    background-color: #212429;
+    border: 1px solid #2f333b;
+    border-radius: 4px;
+}
+
+QFrame#toolbar {
+    background-color: #191b1f;
+    border: none;
+    border-bottom: 1px solid #2b2e35;
+}
+
+QLabel#panelTitle {
+    color: #8b919c;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 6px 8px 2px 8px;
+}
+
+QLabel#hint {
+    color: #6d737e;
+    font-size: 11px;
+}
+
+/* --- botoes --- */
+QToolButton, QPushButton {
+    background-color: #2a2e35;
+    border: 1px solid #363b45;
+    border-radius: 4px;
+    padding: 4px 10px;
+    color: #d6d9de;
+}
+QToolButton:hover, QPushButton:hover {
+    background-color: #333842;
+    border-color: #444b57;
+}
+QToolButton:checked, QPushButton:checked {
+    background-color: #2f4a80;
+    border-color: #3d6fd4;
+    color: #ffffff;
+}
+QToolButton:disabled, QPushButton:disabled {
+    color: #5b6069;
+    border-color: #2b2e35;
+}
+
+QToolButton#playButton {
+    background-color: #3d6fd4;
+    border-color: #4f81e6;
+    color: #ffffff;
+    min-width: 34px;
+    min-height: 26px;
+}
+
+/* --- campos --- */
+QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
+    background-color: #15171a;
+    border: 1px solid #363b45;
+    border-radius: 3px;
+    padding: 3px 6px;
+    selection-background-color: #3d6fd4;
+}
+QLineEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {
+    border-color: #3d6fd4;
+}
+
+QComboBox {
+    background-color: #2a2e35;
+    border: 1px solid #363b45;
+    border-radius: 3px;
+    padding: 3px 8px;
+}
+QComboBox:hover { border-color: #444b57; }
+QComboBox::drop-down { border: none; width: 18px; }
+QComboBox QAbstractItemView {
+    background-color: #212429;
+    border: 1px solid #363b45;
+    selection-background-color: #2f4a80;
+    outline: none;
+}
+
+/* --- deslizantes --- */
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #2b2e35;
+    border-radius: 2px;
+}
+QSlider::sub-page:horizontal { background: #3d6fd4; border-radius: 2px; }
+QSlider::handle:horizontal {
+    background: #d6d9de;
+    width: 12px;
+    height: 12px;
+    margin: -5px 0;
+    border-radius: 6px;
+}
+QSlider::handle:horizontal:hover { background: #ffffff; }
+
+/* --- arvores e listas --- */
+QTreeView, QListView, QTableView {
+    background-color: #1a1c20;
+    border: 1px solid #2f333b;
+    alternate-background-color: #1e2126;
+    outline: none;
+}
+QTreeView::item, QListView::item, QTableView::item { padding: 3px 2px; }
+QTreeView::item:hover, QListView::item:hover { background-color: #262a31; }
+QTreeView::item:selected, QListView::item:selected, QTableView::item:selected {
+    background-color: #2f4a80;
+    color: #ffffff;
+}
+QHeaderView::section {
+    background-color: #212429;
+    color: #8b919c;
+    border: none;
+    border-bottom: 1px solid #2f333b;
+    padding: 4px 6px;
+    font-size: 11px;
+}
+
+/* --- abas --- */
+QTabWidget::pane {
+    border: 1px solid #2f333b;
+    border-radius: 4px;
+    top: -1px;
+}
+QTabBar::tab {
+    background-color: #1c1e22;
+    color: #8b919c;
+    padding: 6px 14px;
+    border: 1px solid transparent;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+}
+QTabBar::tab:hover { color: #d6d9de; }
+QTabBar::tab:selected {
+    background-color: #212429;
+    color: #ffffff;
+    border-color: #2f333b;
+    border-bottom-color: #212429;
+}
+
+/* --- barras de rolagem --- */
+QScrollBar:vertical {
+    background: #1a1c20;
+    width: 11px;
+    margin: 0;
+}
+QScrollBar:horizontal { background: #1a1c20; height: 11px; margin: 0; }
+QScrollBar::handle {
+    background: #363b45;
+    border-radius: 5px;
+    min-height: 28px;
+    min-width: 28px;
+}
+QScrollBar::handle:hover { background: #444b57; }
+QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0; }
+QScrollBar::add-page, QScrollBar::sub-page { background: none; }
+
+/* --- menu e barra de status --- */
+QMenuBar { background-color: #191b1f; border-bottom: 1px solid #2b2e35; }
+QMenuBar::item { padding: 5px 10px; background: transparent; }
+QMenuBar::item:selected { background-color: #2f4a80; }
+QMenu {
+    background-color: #212429;
+    border: 1px solid #363b45;
+    padding: 4px;
+}
+QMenu::item { padding: 5px 22px 5px 18px; border-radius: 3px; }
+QMenu::item:selected { background-color: #2f4a80; }
+QMenu::separator { height: 1px; background: #2f333b; margin: 4px 8px; }
+
+QStatusBar {
+    background-color: #191b1f;
+    border-top: 1px solid #2b2e35;
+    color: #8b919c;
+}
+QStatusBar::item { border: none; }
+
+/* --- visualizador de video --- */
+QOpenGLWidget#viewer {
+    background-color: #0e0f11;
+    border: 1px solid #2f333b;
+}
+
+/* --- grupos de no no inspector --- */
+QGroupBox {
+    border: 1px solid #2f333b;
+    border-radius: 4px;
+    margin-top: 14px;
+    padding: 8px 8px 8px 8px;
+    font-size: 11px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 8px;
+    padding: 0 4px;
+    color: #8b919c;
+}
+
+/* --- dica de carregamento / erro --- */
+QLabel#errorText { color: #e06c6c; }
+QLabel#successText { color: #6cc07a; }

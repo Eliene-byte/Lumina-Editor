@@ -1,0 +1,29 @@
+<RCC>
+    <qresource prefix="/shaders">
+        <file>common.glsl</file>
+        <file>copy.frag</file>
+        <file>solid.frag</file>
+        <file>merge.frag</file>
+        <file>view_transform.frag</file>
+        <file>blur.frag</file>
+        <file>brightness_contrast.frag</file>
+        <file>curves.frag</file>
+        <file>hue_saturation.frag</file>
+        <file>color_balance.frag</file>
+        <file>glow.frag</file>
+        <file>shape.frag</file>
+        <file>noise_texture.frag</file>
+        <file>displace.frag</file>
+        <file>channel_key.frag</file>
+        <file>lut3d.frag</file>
+        <file>matte.frag</file>
+        <file>checkerboard.frag</file>
+        <file>vignette.frag</file>
+        <file>set_alpha.frag</file>
+        <file>time_stretch.frag</file>
+    </qresource>
+
+    <qresource prefix="/themes">
+        <file>themes/dark.qss</file>
+    </qresource>
+</RCC>

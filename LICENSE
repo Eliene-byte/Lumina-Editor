@@ -1,0 +1,124 @@
+                   GNU LESSER GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+
+  This version of the GNU Lesser General Public License incorporates
+the terms and conditions of version 3 of the GNU General Public
+License, supplemented by the additional permissions listed below.
+
+  0. Additional Definitions.
+
+  As used herein, "this License" refers to version 3 of the GNU Lesser
+General Public License, and the "GNU GPL" refers to version 3 of the GNU
+General Public License.
+
+  "The Library" refers to a covered work governed by this License,
+other than an Application or a Combined Work as defined below.
+
+  1. Exception to Section 3 of the GNU GPL.
+
+  You may convey a covered work under sections 3 and 4 of this License
+without being bound by section 3 of the GNU GPL.
+
+  2. Conveying Modified Versions.
+
+  If you modify a copy of the Library, and, in your modifications, a
+facility refers to a function or data to be supplied by an Application
+that uses the facility (other than as an argument passed when the
+facility is invoked), then you may convey a copy of the modified
+version:
+
+  a) under the terms of this License, provided that you also meet all
+     of these conditions:
+
+       n) The modified work must carry prominent notices stating that
+          you changed the files and the date of any change.
+
+  b) under the terms of the GNU GPL version 3, provided that you also
+     meet all of these conditions.
+
+  3. Object Code Incorporating Material from Library Header Files.
+
+  The object code form of an Application may incorporate material from
+a header file that is part of the Library.  You may convey such object
+code under terms of your choice, provided that the incorporated
+material is limited to numerical parameters, data structure layouts,
+accessors, or small macros, inline functions and templates.
+
+  4. Combined Works.
+
+  You may convey a Combined Work under terms of your choice that,
+taken together, effectively do not restrict modification of the
+portions of the Library contained in the Combined Work and reverse
+engineering for debugging such modifications, if You also give
+prominent notice that the Library is used in it and that the Library
+and its use are covered by this License, and accompany the Combined
+Work with a copy of the GNU GPL and this license document.
+
+  5. Combined Libraries.
+
+  You may place library facilities that are a work based on the
+Library side by side in a single library together with other library
+facilities that are not Applications and are not covered by this
+License, and convey such a combined library under terms of your
+choice.
+
+  6. Revised Versions of the GNU Lesser General Public License.
+
+  The Free Software Foundation may publish revised and/or new versions
+of the GNU Lesser General Public License from time to time.  If the
+Library as you received it specifies that a certain numbered version
+of the GNU Lesser General Public License "or any later version" applies
+to it, you have the option of following the terms and conditions
+either of that published version or of any later version published by
+the Free Software Foundation.
+
+                     END OF TERMS AND CONDITIONS
+
+  The full text of the GNU Lesser General Public License version 3
+includes the terms and conditions of version 3 of the GNU General
+Public License, supplemented by the additional permissions listed
+above.  The complete text is available at:
+
+  https://www.gnu.org/licenses/lgpl-3.0.txt
+  https://www.gnu.org/licenses/gpl-3.0.txt
+
+  How to Apply These Terms to Your New Programs
+
+  Lumina - editor de video portatil
+  Copyright (C) 2026  Lumina contributors
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU Lesser General Public License as
+  published by the Free Software Foundation, either version 3 of the
+  License, or (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public
+  License along with this program.  If not, see
+  <https://www.gnu.org/licenses/>.
+
+  ---
+
+  THIRD-PARTY COMPONENTS
+
+  Qt 6 - used under the GNU Lesser General Public License version 3.
+         Dynamic linking; the LGPL requires that users be able to
+         replace the Qt libraries. The portable build ships the DLLs
+         alongside the executable, which satisfies this.
+
+  FFmpeg - used under the GNU Lesser General Public License version 2.1
+          or later, when linked dynamically (default). The CI downloads
+          a shared build, so the FFmpeg DLLs can be replaced independently.
+
+  No other third-party code is bundled. The expression engine, the
+  compositor, the project file format and all GLSL shaders in this
+  repository were written for this project.

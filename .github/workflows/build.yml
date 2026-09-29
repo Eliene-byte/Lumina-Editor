@@ -1,0 +1,260 @@
+name: Build
+
+# O que dispara o build. Push na main gera o .zip portavel; pull request so
+# valida. Tag cria release.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancela builds antigos da mesma branch: em push seguido, nao ha razao para
+# esperar dois jobs usando a mesma maquina.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Qt 6.8 LTS: escolha estavel, com binarios para Windows 10 sem aceleracao.
+  # A versao precisa ser identica em todos os passos: o cache do Qt e chaveado
+  # por ela, e um patch diferente faria o cache ser ignorado.
+  QT_VERSION: '6.8.3'
+  QT_ARCH: 'win64_msvc2019_64'
+  AQT_VERSION: '3.1.21'
+
+jobs:
+  build:
+    name: Compilar e empacotar (Windows x64)
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - name: Copiar o codigo
+        uses: actions/checkout@v4
+
+      - name: Cache do Qt
+        # O Qt tem ~2 GB; baixar a cada build gasta metade do tempo do job.
+        uses: actions/cache@v4
+        with:
+          path: C:\Qt
+          key: qt-${{ env.QT_VERSION }}-${{ env.AQT_VERSION }}-win64
+          restore-keys: qt-${{ env.QT_VERSION }}-win64
+
+      - name: Instalar o Qt
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --upgrade pip
+          pip install aqtinstall==$env:AQT_VERSION
+
+          # Base Qt 6.8.3: QtCore, QtGui, QtWidgets, QtOpenGL e o mingw. E o
+          # minimo para um executavel portavel, sem QtWebEngine nem QtQuick.
+          aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH `
+            -m qtshadertools `
+            -O C:\Qt
+
+      - name: Cache do FFmpeg
+        uses: actions/cache@v4
+        with:
+          path: _deps/ffmpeg
+          key: ffmpeg-dev-6.1-lgpl-win64
+
+      - name: Obter o FFmpeg (LGPL, com headers)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path _deps | Out-Null
+
+          # Build LGPL com headers: e o unico que podemos redistribuir junto
+          # com um projeto sob LGPL. Os binarios "shared" do BtbN trazem
+          # avcodec/avformat/swscale/swresample e os headers.
+          $archive = '_deps/ffmpeg-dev.zip'
+          $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip'
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath '_deps/ffmpeg' -Force
+          Remove-Item $archive
+
+          $include = '_deps/ffmpeg/include'
+          $lib = '_deps/ffmpeg/lib'
+          if (-not (Test-Path "$include/libavcodec/avcodec.h")) {
+            throw "FFmpeg sem headers em $include"
+          }
+          if (-not (Test-Path "$lib/avcodec.lib")) {
+            throw "FFmpeg sem bibliotecas em $lib"
+          }
+          "FFmpeg pronto: $include / $lib"
+
+      - name: Configurar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+
+          cmake -S . -B build `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DLUMINA_SHIPPING=ON `
+            -DLUMINA_BUILD_TESTS=ON `
+            -DLUMINA_ENABLE_FFMPEG=ON `
+            -DFFMPEG_ROOT="$PWD/_deps/ffmpeg" `
+            -DCMAKE_PREFIX_PATH="C:/Qt/${{ env.QT_VERSION }}/${{ env.QT_ARCH }}"
+
+      - name: Compilar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          cmake --build build --config Release --parallel
+
+      - name: Testes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:QT_QPA_PLATFORM = 'offscreen'
+
+          $exe = 'build/tests/Release/lumina_tests.exe'
+          if (-not (Test-Path $exe)) {
+            $exe = 'build/src/tests/Release/lumina_tests.exe'
+          }
+          Write-Host "Executando: $exe"
+          & $exe
+
+      - name: Render de referencia (headless)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:QT_QPA_PLATFORM = 'offscreen'
+
+          $lumina = 'build/src/app/Release/lumina.exe'
+          if (-not (Test-Path $lumina)) { $lumina = 'build/src/app/Release/lumina' }
+
+          # Renderiza um quadro sem abrir janela. Prova que o caminho de
+          # exportacao funciona no CI, e nao so na maquina de quem escreveu.
+          & $lumina --render "$PWD/artifacts/frame.png"
+          if ($LASTEXITCODE -ne 0) {
+            throw "render headless falhou com codigo $LASTEXITCODE"
+          }
+          if (-not (Test-Path 'artifacts/frame.png')) {
+            throw "render nao gerou o arquivo"
+          }
+          $size = (Get-Item 'artifacts/frame.png').Length
+          Write-Host "frame.png: $size bytes"
+          if ($size -lt 1000) {
+            throw "frame.png pequeno demais: $size bytes (provavelmente vazio)"
+          }
+
+      - name: Montar a pasta portatil
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+
+          $outDir = 'dist/Lumina'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          $lumina = 'build/src/app/Release/lumina.exe'
+          if (-not (Test-Path $lumina)) { $lumina = 'build/src/app/Release/lumina' }
+          Copy-Item $lumina $outDir
+
+          # Deploy do Qt: copia as DLLs, o estilo e o qwindows. E o que torna
+          # a pasta portavel - sem instalador, sem registro, sem depender de
+          # nada instalado na maquina.
+          & "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin\windeployqt.exe" `
+            --no-translations --no-system-d3d-compiler --no-opengl-sw `
+            --no-quick-import --compiler-runtime `
+            $outDir
+
+          # FFmpeg junto: o executavel depende das DLLs em ../bin.
+          Copy-Item '_deps/ffmpeg/bin/*.dll' $outDir -ErrorAction SilentlyContinue
+          Copy-Item '_deps/ffmpeg/lib/*.dll' $outDir -ErrorAction SilentlyContinue
+
+          # Documentacao dentro da pasta: quem extrai o zip tem tudo.
+          Copy-Item 'README.md' $outDir -ErrorAction SilentlyContinue
+          Copy-Item 'LICENSE' $outDir -ErrorAction SilentlyContinue
+
+          Write-Host "Pasta portavel:"
+          Get-ChildItem $outDir | Select-Object Name, Length
+
+      - name: Verificar o tamanho
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $total = (Get-ChildItem 'dist/Lumina' -Recurse -File |
+                    Measure-Object -Property Length -Sum).Sum
+          $mb = [math]::Round($total / 1MB, 1)
+          Write-Host "Tamanho total: $mb MB"
+
+          # Budget: um editor "ultra leve" que passa de 120 MBinstalled nao e
+          # ultra leve, e o numero precisa de um alarme quando crescer.
+          if ($mb -gt 120) {
+            Write-Warning "A pasta portavel passou de 120 MB ($mb MB). Reveja o que esta sendo copiado."
+          }
+
+      - name: Comprimir
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+
+          $version = (Select-String -Path 'src/app/main.cpp' -Pattern 'setApplicationVersion\("([^"]+)"').Matches[0].Groups[1].Value
+          $sha = $env:GITHUB_SHA.Substring(0, 7)
+          $name = "Lumina-$version-win64-$sha.zip"
+
+          Compress-Archive -Path 'dist/Lumina/*' -DestinationPath "artifacts/$name" -CompressionLevel Optimal
+          Write-Host "Gerado: artifacts/$name"
+
+      - name: Publicar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lumina-portatil-win64
+          path: artifacts/*.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publicar artefato (frame de referencia)
+        uses: actions/upload-artifact@v4
+        with:
+          name: frame-referencia
+          path: artifacts/frame.png
+          retention-days: 7
+          if-no-files-found: warn
+
+  release:
+    name: Publicar release
+    runs-on: ubuntu-latest
+    needs: build
+    # So cria release quando ha tag. Em push na main, o artefato ja basta.
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Baixar o pacote
+        uses: actions/download-artifact@v4
+        with:
+          name: Lumina-portatil-win64
+          path: zip
+
+      - name: Criar a release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: zip/*.zip
+          generate_release_notes: true
+          body: |
+            ## Lumina
+
+            Editor de video portatil: composicao por nos, linha do tempo
+            multipista e correcao de cor.
+
+            **Como usar:** extraia o zip em qualquer pasta e execute `lumina.exe`.
+            Nao instala nada, nao escreve no registro, nao precisa de permissao
+            de administrador.
+
+            **Requisitos:** Windows 10 ou superior. O renderizador usa OpenGL 3.3;
+            em maquina sem GPU dedicada o editor detecta e sugere o modo leve.
