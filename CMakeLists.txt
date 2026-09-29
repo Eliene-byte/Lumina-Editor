@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.28)
 project(Lumina
     VERSION 0.1.0
     DESCRIPTION "Editor de video portátil: composicao node-based, timeline multipista e color grading"
-    HOMEPAGE_URL "https://github.com/SEU-USUARIO/lumina"
+    HOMEPAGE_URL "https://github.com/Eliene-byte/Lumina-Editor"
     LANGUAGES CXX
 )
 
