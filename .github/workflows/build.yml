@@ -192,10 +192,14 @@ jobs:
           "FFMPEG_ROOT=$($root.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "FFmpeg ok em $($root.FullName)"
 
+      # O log do Actions so e legivel com autenticacao, e o erro do CMake e
+      # exatamente o que interessa. O step summary de um repositorio publico
+      # aparece na pagina do run sem login, entao o erro vai para la. Sem
+      # isso, cada falha custa um run inteiro so para descobrir o que era.
       - name: Configurar
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
+          $ErrorActionPreference = 'Continue'
           $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
 
           # FFMPEG_ROOT vem do passo anterior, que descobriu a pasta real.
@@ -203,6 +207,7 @@ jobs:
             throw "FFMPEG_ROOT nao chegou neste passo: '$env:FFMPEG_ROOT'"
           }
 
+          $log = 'configurar.log'
           cmake -S . -B build `
             -G "Visual Studio 17 2022" `
             -A x64 `
@@ -211,14 +216,37 @@ jobs:
             -DLUMINA_BUILD_TESTS=ON `
             -DLUMINA_ENABLE_FFMPEG=ON `
             -DFFMPEG_ROOT="$env:FFMPEG_ROOT" `
-            -DCMAKE_PREFIX_PATH="C:/Qt/${{ env.QT_VERSION }}/${{ env.QT_DIR_NAME }}"
+            -DCMAKE_PREFIX_PATH="C:/Qt/${{ env.QT_VERSION }}/${{ env.QT_DIR_NAME }}" *>&1 |
+            Tee-Object -FilePath $log
+
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            $erro = Get-Content $log -Tail 60
+            "### Configurar falhou (codigo $code)`n``````text`n$($erro -join "`n")`n``````" |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            throw "cmake falhou com codigo $code (saida completa no resumo deste step)"
+          }
+          "Configurar ok" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - name: Compilar
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
+          $ErrorActionPreference = 'Continue'
           $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
-          cmake --build build --config Release --parallel
+
+          $log = 'compilar.log'
+          cmake --build build --config Release --parallel *>&1 | Tee-Object -FilePath $log
+          $code = $LASTEXITCODE
+
+          if ($code -ne 0) {
+            # O compilador acusa na ordem inversa e a ultima linha raramente e
+            # a causa. O que resolve o erro esta no meio, entao vai tudo.
+            $erro = Get-Content $log -Tail 200
+            "### Compilar falhou (codigo $code)`n``````text`n$($erro -join "`n")`n``````" |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+            throw "compilacao falhou com codigo $code (saida completa no resumo deste step)"
+          }
+          "Compilar ok" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
       - name: Testes
         shell: pwsh
