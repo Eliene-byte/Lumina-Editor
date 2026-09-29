@@ -22,7 +22,10 @@ target_link_libraries(lumina_ui
         lumina::media_ui
         lumina::nodes
         Qt6::Widgets
+        # OpenGLWidgets e separado de OpenGL no Qt 6 e e quem traz
+        # QOpenGLWidget, usado pelo visualizador.
         Qt6::OpenGL
+        Qt6::OpenGLWidgets
     PRIVATE
         Qt6::Core
         Qt6::Gui

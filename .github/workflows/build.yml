@@ -41,6 +41,24 @@ jobs:
       - name: Copiar o codigo
         uses: actions/checkout@v4
 
+      # O guard roda primeiro, antes de baixar 2 GB de Qt. Ele e o passo mais
+      # barato do job e pega erro de link (metodo declarado sem definicao),
+      # membro inexistente, modulo de Qt faltando e alvo de CMake renomeado
+      # - todos eles que o compilador so acusa muito depois, ou nunca.
+      - name: Verificacao estatica (guard)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # O proprio guard se testa: injeta bugs conhecidos numa copia e
+          # falha se o guard nao achar. Sem isso, um guard quebrado "passa"
+          # em tudo e o passo abaixo verde nao significa nada.
+          python tools/test_guard.py
+
+          # --includes fica de fora: include transitiva e a regra no mundo
+          # real e essa regra reporta mais ruido que sinal.
+          python tools/guard.py
+
       - name: Cache do Qt
         # O Qt tem ~2 GB; baixar a cada build gasta metade do tempo do job.
         uses: actions/cache@v4
@@ -95,7 +113,8 @@ jobs:
             'lib\cmake\Qt6Core\Qt6CoreConfig.cmake',
             'lib\cmake\Qt6Gui\Qt6GuiConfig.cmake',
             'lib\cmake\Qt6Widgets\Qt6WidgetsConfig.cmake',
-            'lib\cmake\Qt6OpenGL\Qt6OpenGLConfig.cmake'
+            'lib\cmake\Qt6OpenGL\Qt6OpenGLConfig.cmake',
+            'lib\cmake\Qt6OpenGLWidgets\Qt6OpenGLWidgetsConfig.cmake'
           )
           foreach($needed in $required) {
             $path = Join-Path $qtRoot $needed
@@ -106,6 +125,20 @@ jobs:
 
           $size = [math]::Round((Get-ChildItem $qtRoot -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 0)
           Write-Host "Qt ok: $qtRoot ($size MB)"
+
+      # Segunda passada do guard, agora com o Qt de verdade em disco. O
+      # primeiro passo so conhece uma lista fixa de classes; com os headers
+      # reais ele confere modulo a modulo, e pega classe de modulo raro que
+      # a lista fixa nao tem.
+      - name: Verificacao estatica (guard, com Qt instalado)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $qtRoot = "C:\Qt\$env:QT_VERSION\$env:QT_DIR_NAME"
+          python tools/guard.py --qt $qtRoot
+          if ($LASTEXITCODE -ne 0) {
+            throw "guard achou problemas (veja acima)"
+          }
 
       - name: Cache do FFmpeg
         uses: actions/cache@v4

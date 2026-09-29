@@ -41,7 +41,7 @@ public:
     void setShowCheckerboard(bool on) { m_checkerboard = on; invalidate(); }
     void setShowSafeAreas(bool on) { m_safeAreas = on; invalidate(); }
     void setSplitView(bool on) { m_splitView = on; invalidate(); }   // antes/depois
-    void setSplitPosition(double t);                                 // 0..1
+    void setSplitPosition(double t);   // 0..1, definido no .cpp
     void setOverlayEnabled(bool on) { m_overlay = on; invalidate(); }
 
     // Escala de renderizacao do preview. 0.5 metade da resolucao.

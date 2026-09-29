@@ -60,6 +60,14 @@ void ViewerWidget::setViewedNode(NodeId id) {
     invalidate();
 }
 
+void ViewerWidget::setSplitPosition(double t) {
+    // Fora de 0..1 a linha sai da imagem e o antes/depois perde o sentido.
+    // O clamp mantem a barra sempre dentro do quadro, que e o que o usuario
+    // quer quando arrasta ate a borda.
+    m_splitPosition = std::clamp(t, 0.0, 1.0);
+    invalidate();
+}
+
 void ViewerWidget::setPreviewScale(double scale) {
     const double clamped = std::clamp(scale, 0.125, 1.0);
     if (std::abs(clamped - m_previewScale) < 1e-6) return;

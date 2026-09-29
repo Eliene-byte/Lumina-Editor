@@ -62,12 +62,17 @@ endif()
 # ---------------------------------------------------------------------------
 # Dependencias
 # ---------------------------------------------------------------------------
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL)
+# Qt 6 moveu QOpenGLWidget de QtOpenGL para QtOpenGLWidgets. Pedir apenas
+# "OpenGL" compila o core mas falha em src/ui/ViewerWidget, porque o include
+# <QOpenGLWidget> nao existe nesse modulo.
+find_package(Qt6 6.5 REQUIRED COMPONENTS
+    Core
+    Gui
+    Widgets
+    OpenGL
+    OpenGLWidgets
+)
 qt_standard_project_setup(REQUIRES 6.5)
-
-if(APPLE)
-    find_package(Qt6 6.5 REQUIRED COMPONENTS OpenGLWidgets)
-endif()
 
 if(LUMINA_ENABLE_FFMPEG)
     find_package(FFmpeg REQUIRED)
