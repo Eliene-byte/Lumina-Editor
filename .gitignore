@@ -47,3 +47,7 @@ desktop.ini
 # Cache local
 .cache/
 /tmp/
+
+# Python (tools/)
+__pycache__/
+*.pyc
