@@ -21,11 +21,14 @@ env:
   # A versao precisa ser identica em todos os passos: o cache do Qt e chaveado
   # por ela, e um patch diferente faria o cache ser ignorado.
   QT_VERSION: '6.8.3'
-  # Desde o Qt 6.7 o nome do alvo MSVC mudou de win64_msvc2019_64 para
-  # win64_msvc2022_64. Confirme com `aqt list-qt windows desktop --arch $QT_VERSION`
-  # antes de trocar: um nome errado falha na etapa de instalar o Qt, e a
-  # mensagem do aqt nao deixa claro qual era o nome correto.
+  # O nome do alvo do aqt e o nome da PASTA que ele cria, e sao diferentes.
+  #   alvo aqt: win64_msvc2022_64
+  #   pasta:    C:\Qt\6.8.3\msvc2022_64
+  # Usar o mesmo nome nos dois e o erro que fez a primeira build falhar.
+  # Verifique com `aqt list-qt windows desktop --arch <versao>` e, depois de
+  # instalar, com `ls C:\Qt\<versao>`.
   QT_ARCH: 'win64_msvc2022_64'
+  QT_DIR_NAME: 'msvc2022_64'
   AQT_VERSION: '3.1.21'
 
 jobs:
@@ -58,17 +61,51 @@ jobs:
           # driver). Deixar de fora corta ~200 MB do download e do cache.
           aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH -O C:\Qt
 
-          # Verifica o que interessa. Falhar aqui, com caminho explicito, e
-          # muito mais barato do que falhar tres passos depois no CMake sem
-          # dizer qual arquivo sumiu.
-          $qtRoot = "C:\Qt\$env:QT_VERSION\$env:QT_ARCH"
-          foreach($needed in @('bin\qmake.exe','lib\cmake\Qt6\Qt6Config.cmake')) {
+      - name: Verificar a instalacao do Qt
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # O aqt cria C:\Qt\<versao>\<pasta>. A pasta NAO tem o prefixo do
+          # alvo: alvo win64_msvc2022_64 vira pasta msvc2022_64. Descobrir a
+          # pasta pelo que existe em disco e o que evita esse tipo de erro
+          # silencioso.
+          $versionDir = "C:\Qt\$env:QT_VERSION"
+          if (-not (Test-Path $versionDir)) {
+            throw "C:\Qt\$env:QT_VERSION nao existe. Conteudo de C:\Qt:"
+            Get-ChildItem C:\Qt | ForEach-Object { Write-Host "  $($_.Name)" }
+          }
+
+          $qtRoot = Join-Path $versionDir $env:QT_DIR_NAME
+          if (-not (Test-Path $qtRoot)) {
+            $found = Get-ChildItem $versionDir -Directory | Select-Object -First 1
+            if ($found) {
+              throw "Esperava a pasta '$env:QT_DIR_NAME' mas o aqt criou '$($found.Name)'. Corrija QT_DIR_NAME no workflow."
+            }
+            throw "Nenhuma pasta de Qt em $versionDir"
+          }
+
+          # Verifica o que o build realmente usa. Falhar aqui, com caminho
+          # explicito, e muito mais barato do que falhar tres passos depois no
+          # CMake sem dizer qual arquivo sumiu.
+          $required = @(
+            'bin\qmake.exe',
+            'bin\windeployqt.exe',
+            'lib\cmake\Qt6\Qt6Config.cmake',
+            'lib\cmake\Qt6Core\Qt6CoreConfig.cmake',
+            'lib\cmake\Qt6Gui\Qt6GuiConfig.cmake',
+            'lib\cmake\Qt6Widgets\Qt6WidgetsConfig.cmake',
+            'lib\cmake\Qt6OpenGL\Qt6OpenGLConfig.cmake'
+          )
+          foreach($needed in $required) {
             $path = Join-Path $qtRoot $needed
             if (-not (Test-Path $path)) {
               throw "Qt instalado sem $needed. Raiz: $qtRoot"
             }
           }
-          Write-Host "Qt ok em $qtRoot"
+
+          $size = [math]::Round((Get-ChildItem $qtRoot -Recurse -File | Measure-Object Length -Sum).Sum / 1MB, 0)
+          Write-Host "Qt ok: $qtRoot ($size MB)"
 
       - name: Cache do FFmpeg
         uses: actions/cache@v4
@@ -85,27 +122,53 @@ jobs:
           # Build LGPL com headers: e o unico que podemos redistribuir junto
           # com um projeto sob LGPL. Os binarios "shared" do BtbN trazem
           # avcodec/avformat/swscale/swresample e os headers.
-          $archive = '_deps/ffmpeg-dev.zip'
+          $archive = '_deps/ffmpeg.zip'
           $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-lgpl-shared.zip'
           Invoke-WebRequest -Uri $url -OutFile $archive
           Expand-Archive -Path $archive -DestinationPath '_deps/ffmpeg' -Force
           Remove-Item $archive
 
-          $include = '_deps/ffmpeg/include'
-          $lib = '_deps/ffmpeg/lib'
-          if (-not (Test-Path "$include/libavcodec/avcodec.h")) {
-            throw "FFmpeg sem headers em $include"
+          # O zip tem um subdiretorio com o nome do build. Encontrar a raiz de
+          # verdade em vez de assumir o nome evita o erro de sempre: passar
+          # _deps/ffmpeg para o CMake quando ele espera a pasta com include/.
+          $root = Get-ChildItem '_deps/ffmpeg' -Directory |
+                  Where-Object { Test-Path (Join-Path $_.FullName 'include/libavcodec/avcodec.h') } |
+                  Select-Object -First 1
+          if (-not $root) {
+            throw "FFmpeg descompactado sem include/libavcodec/avcodec.h. Estrutura:"
+            Get-ChildItem '_deps/ffmpeg' -Recurse -Depth 2 -Directory |
+              ForEach-Object { Write-Host "  $($_.FullName)" }
           }
-          if (-not (Test-Path "$lib/avcodec.lib")) {
-            throw "FFmpeg sem bibliotecas em $lib"
+
+          # Falhar aqui, com caminho, e mais barato do que o CMake reclamar de
+          # header nao encontrado tres passos depois.
+          $required = @(
+            'include\libavcodec\avcodec.h',
+            'include\libavutil\version.h',
+            'lib\avcodec.lib', 'lib\avutil.lib', 'lib\avformat.lib',
+            'lib\swscale.lib', 'lib\swresample.lib'
+          )
+          foreach($needed in $required) {
+            if (-not (Test-Path (Join-Path $root.FullName $needed))) {
+              throw "FFmpeg sem $needed. Raiz: $($root.FullName)"
+            }
           }
-          "FFmpeg pronto: $include / $lib"
+
+          # Salva a raiz para os passos seguintes. GITHUB_ENV e o unico lugar
+          # que persiste variaveis entre steps.
+          "FFMPEG_ROOT=$($root.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "FFmpeg ok em $($root.FullName)"
 
       - name: Configurar
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
+
+          # FFMPEG_ROOT vem do passo anterior, que descobriu a pasta real.
+          if (-not (Test-Path $env:FFMPEG_ROOT)) {
+            throw "FFMPEG_ROOT nao chegou neste passo: '$env:FFMPEG_ROOT'"
+          }
 
           cmake -S . -B build `
             -G "Visual Studio 17 2022" `
@@ -114,21 +177,21 @@ jobs:
             -DLUMINA_SHIPPING=ON `
             -DLUMINA_BUILD_TESTS=ON `
             -DLUMINA_ENABLE_FFMPEG=ON `
-            -DFFMPEG_ROOT="$PWD/_deps/ffmpeg" `
-            -DCMAKE_PREFIX_PATH="C:/Qt/${{ env.QT_VERSION }}/${{ env.QT_ARCH }}"
+            -DFFMPEG_ROOT="$env:FFMPEG_ROOT" `
+            -DCMAKE_PREFIX_PATH="C:/Qt/${{ env.QT_VERSION }}/${{ env.QT_DIR_NAME }}"
 
       - name: Compilar
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
           cmake --build build --config Release --parallel
 
       - name: Testes
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
           $env:QT_QPA_PLATFORM = 'offscreen'
 
           $exe = 'build/tests/Release/lumina_tests.exe'
@@ -142,7 +205,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
           $env:QT_QPA_PLATFORM = 'offscreen'
 
           $lumina = 'build/src/app/Release/lumina.exe'
@@ -167,7 +230,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin;$env:Path"
+          $env:Path = "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin;$env:Path"
 
           $outDir = 'dist/Lumina'
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
@@ -179,14 +242,21 @@ jobs:
           # Deploy do Qt: copia as DLLs, o estilo e o qwindows. E o que torna
           # a pasta portavel - sem instalador, sem registro, sem depender de
           # nada instalado na maquina.
-          & "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_ARCH }}\bin\windeployqt.exe" `
+          & "C:\Qt\${{ env.QT_VERSION }}\${{ env.QT_DIR_NAME }}\bin\windeployqt.exe" `
             --no-translations --no-system-d3d-compiler --no-opengl-sw `
             --no-quick-import --compiler-runtime `
             $outDir
 
-          # FFmpeg junto: o executavel depende das DLLs em ../bin.
-          Copy-Item '_deps/ffmpeg/bin/*.dll' $outDir -ErrorAction SilentlyContinue
-          Copy-Item '_deps/ffmpeg/lib/*.dll' $outDir -ErrorAction SilentlyContinue
+          # FFmpeg junto: o executavel depende das DLLs de $FFMPEG_ROOT\bin.
+          # Sem -ErrorAction SilentlyContinue a copia silenciosamente nao
+          # copiaria nada e o .zip sairia sem FFmpeg, quebrando so na maquina
+          # de quem baixou.
+          $dlls = Get-ChildItem (Join-Path $env:FFMPEG_ROOT 'bin/*.dll') -ErrorAction Stop
+          if ($dlls.Count -lt 5) {
+            throw "FFmpeg com $($dlls.Count) DLL(s) em $env:FFMPEG_ROOT\bin; esperado avcodec, avformat, avutil, swscale e swresample"
+          }
+          Copy-Item $dlls.FullName $outDir
+          Write-Host "FFmpeg: $($dlls.Count) DLLs copiadas"
 
           # Documentacao dentro da pasta: quem extrai o zip tem tudo.
           Copy-Item 'README.md' $outDir -ErrorAction SilentlyContinue
