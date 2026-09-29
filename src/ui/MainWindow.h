@@ -178,8 +178,6 @@ protected:
 private slots:
     void onNewProject();
     void onOpen();
-    void onSave();
-    void onSaveAs();
     void onExportFrame();
     void onExportImage();
     void onExportMovie();

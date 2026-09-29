@@ -9,8 +9,10 @@
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
@@ -18,6 +20,7 @@
 #include <QSlider>
 #include <QSpinBox>
 #include <QToolButton>
+#include <QVBoxLayout>
 #include <QWidget>
 
 #include "core/Property.h"

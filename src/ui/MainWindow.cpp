@@ -349,10 +349,13 @@ void MainWindow::createMenus() {
                     &MainWindow::onNewProject);
     file->addAction(QStringLiteral("&Abrir..."), QKeySequence::Open, this,
                     &MainWindow::onOpen);
+    // saveProject/saveProjectAs sao publicos e devolvem bool: o onCloseEvent
+    // usa o retorno para decidir se pode fechar. O atalho e a acao ficam juntos
+    // para que os dois nunca apontem para metodos diferentes.
     file->addAction(QStringLiteral("&Salvar"), QKeySequence::Save, this,
-                    &MainWindow::onSave);
+                    [this] { saveProject(); });
     file->addAction(QStringLiteral("Salvar &como..."), QKeySequence::SaveAs, this,
-                    &MainWindow::onSaveAs);
+                    [this] { saveProjectAs(); });
     file->addSeparator();
     QMenu* exportMenu = file->addMenu(QStringLiteral("&Exportar"));
     exportMenu->addAction(QStringLiteral("&Quadro atual..."), this,

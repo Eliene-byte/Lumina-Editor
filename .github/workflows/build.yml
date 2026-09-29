@@ -21,7 +21,11 @@ env:
   # A versao precisa ser identica em todos os passos: o cache do Qt e chaveado
   # por ela, e um patch diferente faria o cache ser ignorado.
   QT_VERSION: '6.8.3'
-  QT_ARCH: 'win64_msvc2019_64'
+  # Desde o Qt 6.7 o nome do alvo MSVC mudou de win64_msvc2019_64 para
+  # win64_msvc2022_64. Confirme com `aqt list-qt windows desktop --arch $QT_VERSION`
+  # antes de trocar: um nome errado falha na etapa de instalar o Qt, e a
+  # mensagem do aqt nao deixa claro qual era o nome correto.
+  QT_ARCH: 'win64_msvc2022_64'
   AQT_VERSION: '3.1.21'
 
 jobs:
@@ -49,11 +53,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install aqtinstall==$env:AQT_VERSION
 
-          # Base Qt 6.8.3: QtCore, QtGui, QtWidgets, QtOpenGL e o mingw. E o
-          # minimo para um executavel portavel, sem QtWebEngine nem QtQuick.
-          aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH `
-            -m qtshadertools `
-            -O C:\Qt
+          # Sem qtshadertools: ele traz um compilador de shader da NVIDIA que
+          # o Lumina nao usa (nossos shaders sao GLSL puro, compilados pelo
+          # driver). Deixar de fora corta ~200 MB do download e do cache.
+          aqt install-qt windows desktop $env:QT_VERSION $env:QT_ARCH -O C:\Qt
+
+          # Verifica o que interessa. Falhar aqui, com caminho explicito, e
+          # muito mais barato do que falhar tres passos depois no CMake sem
+          # dizer qual arquivo sumiu.
+          $qtRoot = "C:\Qt\$env:QT_VERSION\$env:QT_ARCH"
+          foreach($needed in @('bin\qmake.exe','lib\cmake\Qt6\Qt6Config.cmake')) {
+            $path = Join-Path $qtRoot $needed
+            if (-not (Test-Path $path)) {
+              throw "Qt instalado sem $needed. Raiz: $qtRoot"
+            }
+          }
+          Write-Host "Qt ok em $qtRoot"
 
       - name: Cache do FFmpeg
         uses: actions/cache@v4

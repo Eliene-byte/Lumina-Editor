@@ -128,10 +128,18 @@ ExportDialog::ExportDialog(Project& project, PlaybackController& playback, QWidg
     connect(m_start, &QPushButton::clicked, this, &ExportDialog::onStart);
     connect(m_cancel, &QPushButton::clicked, this, &ExportDialog::onCancel);
     connect(m_timer, &QTimer::timeout, this, &ExportDialog::onProgressTick);
-    for (auto* w : {static_cast<QWidget*>(m_format), static_cast<QWidget*>(m_range),
-                    static_cast<QWidget*>(m_bitrate), static_cast<QWidget*>(m_alpha)}) {
-        connect(w, &QWidget::changed, this, &ExportDialog::onSettingsChanged);
-    }
+
+    // QWidget::changed nao existe no Qt. Cada controle tem o sinal proprio, e
+    // QWidget::changed compilaria em nada.
+    connect(m_format, &QComboBox::currentIndexChanged, this,
+            &ExportDialog::onSettingsChanged);
+    connect(m_range, &QComboBox::currentIndexChanged, this,
+            &ExportDialog::onSettingsChanged);
+    connect(m_bitrate, &QSlider::valueChanged, this, &ExportDialog::onSettingsChanged);
+    connect(m_alpha, &QCheckBox::toggled, this, &ExportDialog::onSettingsChanged);
+    connect(m_withAudio, &QCheckBox::toggled, this, &ExportDialog::onSettingsChanged);
+    connect(m_composition, &QComboBox::currentIndexChanged, this,
+            &ExportDialog::onSettingsChanged);
 
     updateEstimate();
 }
